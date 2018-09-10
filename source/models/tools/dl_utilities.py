@@ -1,5 +1,11 @@
 from __future__ import print_function
 
+#python
+import csv
+import matplotlib.pyplot as plt
+import os
+
+#keras
 from keras.models import Sequential, Model
 # from keras.layers import Dense, Dropout, Activation, Flatten
 # from keras.layers import Convolution2D, MaxPooling2D
@@ -8,8 +14,10 @@ from keras.models import Sequential, Model
 # from keras.optimizers import SGD
 # from keras import applications
 
+#numpy
 import numpy as np
-import csv
+
+#local
 
 # ---------------------- ***** ---------------------- #
 # ---------------------- TOOLS ---------------------- #
@@ -144,3 +152,29 @@ def shuffle_weights(model, layers_to_shuffle, weights=None):
         weights[i] = random_weights[i]
 
     model.set_weights(weights)
+
+
+def heatmaps_softmax(heatmaps):
+    """
+        Return the softmax values of the given heatmaps.
+        Each heatmap must be the predicted value of one class.
+        Therefore the returned maps will be the softmax predicted value for each class.
+        The softmax function is applied along all class, by pixel.
+
+        :param heatmaps: Array of heatmaps.
+        :return: Array of updated heatmaps.
+        :type heatmaps: Numpy array of dimension (w, h, nb_cls).
+        :rtype: Numpy array of dimension (w, h, nb_cls).
+    """
+
+    ret = np.zeros(heatmaps.shape, heatmaps.dtype)
+
+    width, height, _ = heatmaps.shape
+
+    for w in range(width):
+        for h in range(height):
+            x = heatmaps[w,h]
+            e = np.exp(x - np.max(x))
+            ret[w,h] = e / np.sum(e, axis=0)
+
+    return ret

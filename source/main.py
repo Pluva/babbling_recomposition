@@ -7,5 +7,5 @@ if __name__ == '__main__':
 
 
 	# invoque grid search
-	# grid_search.test()
-	grid_search._train("", "", "", "")
+	grid_search.test2()
+	# grid_search._train("", "", "", "")

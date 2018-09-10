@@ -12,13 +12,35 @@ from keras.utils import np_utils
 from keras.models import load_model
 from keras.optimizers import SGD
 from keras import applications, layers
-
+from keras.engine import Layer
 
 #tensorflow
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.layers import Lambda;
 
 #local
+
+
+# ---------------------- ****** ---------------------- #
+# ---------------------- LAYERS ---------------------- #
+# ---------------------- ****** ---------------------- #
+
+
+class Softmax4D(Layer):
+    def __init__(self, axis=-1,**kwargs):
+        self.axis=axis
+        super(Softmax4D, self).__init__(**kwargs)
+
+    def build(self,input_shape):
+        pass
+
+    def call(self, x,mask=None):
+        e = K.exp(x - K.max(x, axis=self.axis, keepdims=True))
+        s = K.sum(e, axis=self.axis, keepdims=True)
+        return e / s
+
+    def get_output_shape_for(self, input_shape):
+        return input_shape
 
 
 # ---------------------- ****** ---------------------- #
@@ -215,6 +237,8 @@ def construct_model_VGG16(nb_classes, input_shape, last_layers_sizes=[4096,4096]
 
     return model
 
+
+
 def keras_model_VGG16(nb_classes, input_shape, last_layers_sizes=[4096,4096], name_top='fc',
     weights='imagenet', input_tensor=None):
     """ 
@@ -256,6 +280,8 @@ def keras_model_VGG16(nb_classes, input_shape, last_layers_sizes=[4096,4096], na
     return model;
 
 
+
+
 def construct_model_XCONV(nb_classes, input_shape, nb_blocks, last_layers_sizes, name_top='fc', heatmap=False, data_format='channel_last'):
     """
         Construct and return a paramterized convolutionnal model.
@@ -288,21 +314,21 @@ def construct_model_XCONV(nb_classes, input_shape, nb_blocks, last_layers_sizes,
     if nb_blocks >= 2:
         # Block2
         x = Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv1')(x)
-        x = Conv2D(128, (3, 3), activation='relu', name='block2_conv2')(x)
+        x = Conv2D(128, (3, 3), activation='relu', padding='same', name='block2_conv2')(x)
         x = MaxPooling2D(pool_size=(2, 2), name='block2_pool')(x)
         x = Dropout(0.25)(x)
 
     if nb_blocks >= 3:
         # Block3
         x = Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv1')(x)
-        x = Conv2D(256, (3, 3), activation='relu', name='block3_conv2')(x)
+        x = Conv2D(256, (3, 3), activation='relu', padding='same', name='block3_conv2')(x)
         x = MaxPooling2D(pool_size=(2, 2), name='block3_pool')(x)
         x = Dropout(0.25)(x)
 
     if nb_blocks >= 4:
         # Block4
         x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv1')(x)
-        x = Conv2D(512, (3, 3), activation='relu', name='block4_conv2')(x)
+        x = Conv2D(512, (3, 3), activation='relu', padding='same', name='block4_conv2')(x)
         x = MaxPooling2D(pool_size=(2, 2), name='block4_pool')(x)
         x = Dropout(0.25)(x)
 
@@ -334,6 +360,9 @@ def construct_model_XCONV(nb_classes, input_shape, nb_blocks, last_layers_sizes,
     model = Model(inputs=i, outputs=x)
 
     return model
+
+
+
 
 def construct_model_6CONV(nb_classes, input_shape, last_layers_sizes=[256], name_top='fc'):
     """
@@ -405,11 +434,11 @@ def convert_to_fcn(model):
         :type model: Keras Model
         :rtype: Keras Model
     """
-
-    i = Input(shape=(None, None, 3))
+    channel = int(model.input.shape[3])
+    i = Input(shape=(None, None, channel), name='fcn_input1')
     x = i
 
-    for layer in model.layers:
+    for layer in model.layers[1:]:
 
         if "Flatten" in str(layer):
             flattened_ipt = True
@@ -424,17 +453,14 @@ def convert_to_fcn(model):
             if flattened_ipt:
                 shape = (f_dim[1],f_dim[2],f_dim[3],output_dim)
                 new_W = W.reshape(shape)
-                new_layer = Conv2D(output_dim,
-                    (f_dim[1],f_dim[2]), strides=(1,1),
-                    activation=layer.activation, padding='valid',
+                new_layer = Conv2D(output_dim, (f_dim[1],f_dim[2]), activation=layer.activation, padding='same',
                     weights=[new_W,b], name=layer.name)
                 flattened_ipt = False
 
             else:
                 shape = (1,1,input_shape[1],output_dim)
                 new_W = W.reshape(shape)
-                new_layer = Conv2D(output_dim, (1,1), strides=(1,1),
-                    activation=layer.activation, padding='valid',
+                new_layer = Conv2D(output_dim, (1,1), activation=layer.activation, padding='same',
                     weights=[new_W,b], name=layer.name)
 
         else:
@@ -442,6 +468,8 @@ def convert_to_fcn(model):
             new_layer = layers.deserialize({'class_name': layer.__class__.__name__, 'config': layer_config})
 
         x = new_layer(x)
+
+    # x = Softmax4D()(x)
 
     return Model(inputs=i, outputs=x)
 
